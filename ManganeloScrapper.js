@@ -14,22 +14,22 @@ class ManganeloScrapper {
    * @param {number} page All mangas list page
    * @returns {Promise<{
    *  mangas:{
-  *    id:string,
-  *    title:string,
-  *    link:string,
-  *    thumb:string,
-  *    chapters:number,
-  *    author:string
+   *    id:string,
+   *    title:string,
+   *    link:string,
+   *    thumb:string,
+   *    chapters:number,
+   *    author:string
    *  }[],
-   * metadata:{
-   *  hasNext:boolean,
-   *  hasPrev:boolean,
-   *  itemCount:number,
-   *  totalMangas:number,
-   *  totalPage:number,
-   *  currentPage:number
-   * }
-  *  }[]>} Returns a manga array of current page
+   *  metadata:{
+   *   hasNext:boolean,
+   *   hasPrev:boolean,
+   *   itemCount:number,
+   *   totalMangas:number,
+   *   totalPage:number,
+   *   currentPage:number
+   *  }
+   * }[]>} Returns a manga array of current page
    */
   async getAllList (page = 1) {
     this.url.pathname = `genre-all/${page}`
