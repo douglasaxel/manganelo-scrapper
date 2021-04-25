@@ -20,7 +20,7 @@ npm install manganelo-scrapper
 ## API
 
 ```js
-const Manganelo = require("./Scrappers/Manganelo");
+const Manganelo = require("manganelo-scrapper");
 
 const manganelo = new Manganelo();
 
