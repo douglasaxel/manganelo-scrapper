@@ -1,0 +1,26 @@
+{
+  "name": "manganelo-scrapper",
+  "version": "0.1.0",
+  "description": "A manganelo.com scrapper",
+  "main": "ManganeloScrapper.js",
+  "scripts": {
+    "dev": "nodemon --trace-warnings --ignore data_retrieved/ index"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@pepeenv/manganelo": "^1.1.8",
+    "jsdom": "^16.5.3",
+    "node-cache": "^5.1.2",
+    "node-fetch": "^2.6.1"
+  },
+  "devDependencies": {
+    "eslint": "^7.25.0",
+    "eslint-config-standard": "^16.0.2",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.3.1",
+    "nodemon": "^2.0.7"
+  }
+}
