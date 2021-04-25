@@ -12,7 +12,24 @@ class ManganeloScrapper {
 
   /**
    * @param {number} page All mangas list page
-   * @returns {Promise<{ id:string, title:string, link:string, thumb:string, chapters:number, author:string }[]>} Returns a manga array of current page
+   * @returns {Promise<{
+   *  mangas:{
+  *    id:string,
+  *    title:string,
+  *    link:string,
+  *    thumb:string,
+  *    chapters:number,
+  *    author:string
+   *  }[],
+   * metadata:{
+   *  hasNext:boolean,
+   *  hasPrev:boolean,
+   *  itemCount:number,
+   *  totalMangas:number,
+   *  totalPage:number,
+   *  currentPage:number
+   * }
+  *  }[]>} Returns a manga array of current page
    */
   async getAllList (page = 1) {
     this.url.pathname = `genre-all/${page}`
@@ -25,8 +42,12 @@ class ManganeloScrapper {
     const dom = new JSDOM(text)
     const { document } = dom.window
     const containers = document.querySelectorAll('.content-genres-item')
+    const currentPage = page
+    const firstPage = 1
+    const [, lastPage] = document.querySelector('div.group-page > a.page-blue.page-last').textContent.match(/LAST\(([0-9]+)\)/)
+    const [, totalMangas] = document.querySelector('div.panel-page-number > div.group-qty > a').textContent.split(':')
 
-    const itemInfos = []
+    const mangas = []
 
     containers.forEach((element) => {
       const link = element.querySelector('a.genres-item-img').getAttribute('href')
@@ -36,12 +57,22 @@ class ManganeloScrapper {
       const chapters = element.querySelector('.genres-item-info .genres-item-chap')?.textContent.replace('Chapter ', '') || 'No chapters'
       const author = element.querySelector('.genres-item-info .genres-item-author')?.textContent
 
-      itemInfos.push({ id, title, link, thumb, chapters, author })
+      mangas.push({ id, title, link, thumb, chapters, author })
     })
 
-    this.cache.set(`all-manga:page-${page}`, JSON.stringify(itemInfos))
+    this.cache.set(`all-manga:page-${page}`, JSON.stringify(mangas))
 
-    return itemInfos
+    return {
+      mangas,
+      metadata: {
+        hasNext: currentPage < lastPage,
+        hasPrev: currentPage > firstPage,
+        itemCount: mangas.length,
+        totalMangas: Number(totalMangas.replace(',', '').trim()),
+        totalPage: Number(lastPage),
+        currentPage
+      }
+    }
   }
 
   /**
