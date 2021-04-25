@@ -4,10 +4,19 @@
   "description": "A manganelo.com scrapper",
   "main": "ManganeloScrapper.js",
   "scripts": {
-    "dev": "nodemon --trace-warnings --ignore data_retrieved/ index"
+    "dev": "nodemon --trace-warnings index"
   },
-  "keywords": [],
-  "author": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/douglasaxel/manganelo-scrapper.git"
+  },
+  "keywords": [
+    "manga",
+    "scraper",
+    "manganelo",
+    "web scraper"
+  ],
+  "author": "Douglas Axel <douglasaxelkjellin@gmail.com>",
   "license": "ISC",
   "dependencies": {
     "jsdom": "^16.5.3",
