@@ -1,6 +1,6 @@
 {
   "name": "manganelo-scrapper",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "A manganelo.com scrapper",
   "main": "ManganeloScrapper.js",
   "scripts": {
@@ -10,7 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@pepeenv/manganelo": "^1.1.8",
     "jsdom": "^16.5.3",
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.1"
