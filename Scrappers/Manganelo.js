@@ -5,6 +5,8 @@ const fs = require('fs')
 const path = require('path')
 const NodeCache = require('node-cache')
 const getGenres = require('../utils/getGenres')
+const getStates = require('../utils/getStatus')
+const getTypes = require('../utils/getTypes')
 
 class Manganelo {
   constructor () {
@@ -13,7 +15,7 @@ class Manganelo {
   }
 
   /**
-   * @param {{ page?:number, genre?:string }} param0
+   * @param {{ page?:number, genre?:string, type?:string, state?:string }} param
    * @returns {Promise<{
    *  mangas:{
    *    id:string,
@@ -33,15 +35,22 @@ class Manganelo {
    *  }
    * }[]>} Returns a manga array of current page
    */
-  async getMangaList ({ page = 1, genre = 'all' }) {
-    if (!genre) throw Error('Genre is required')
-    if (typeof genre !== 'string') throw Error('Genre must be a string')
+  async getMangaList (params = { page: 1, genre: 'all', type: '', state: '' }) {
+    const options = { ...{ page: 1, genre: 'all', type: '', state: '' }, ...params }
+    if (!options.page) throw Error('page is required')
+    if (typeof options.page !== 'number') throw Error('page must be a number')
+    if (!options.genre) throw Error('Genre is required')
+    if (typeof options.genre !== 'string') throw Error('Genre must be a string')
 
-    const genreId = getGenres(genre)
+    const genreId = getGenres(options.genre) || options.genre
+    const stateId = getStates(options.state) || options.state
+    const typeId = getTypes(options.type) || options.type
 
-    this.url.pathname = `genre-${genreId}/${page}`
+    this.url.pathname = `genre-${genreId}/${options.page}`
+    if (options.type) this.url.searchParams.append('type', typeId)
+    if (options.state) this.url.searchParams.append('state', stateId)
 
-    const cache = this.cache.get(`${genreId}-manga:page-${page}`)
+    const cache = this.cache.get(`${genreId}-manga:page-${options.page}`)
     if (cache) return JSON.parse(cache)
 
     const res = await fetch(this.url.href)
@@ -49,7 +58,7 @@ class Manganelo {
     const dom = new JSDOM(text)
     const { document } = dom.window
     const containers = document.querySelectorAll('.content-genres-item')
-    const currentPage = page
+    const currentPage = options.page
     const firstPage = 1
     const [, lastPage] = document.querySelector('div.group-page > a.page-blue.page-last').textContent.match(/LAST\(([0-9]+)\)/)
     const [, totalMangas] = document.querySelector('div.panel-page-number > div.group-qty > a').textContent.split(':')
@@ -67,7 +76,7 @@ class Manganelo {
       mangas.push({ id, title, link, thumb, chapters, author })
     })
 
-    this.cache.set(`all-manga:page-${page}`, JSON.stringify(mangas))
+    this.cache.set(`all-manga:page-${options.page}`, JSON.stringify(mangas))
 
     return {
       mangas,
@@ -86,24 +95,24 @@ class Manganelo {
    * @param {string} search
    * @param {number} page
    * @returns {Promise<{
-   *  mangas:{
-   *    id:string,
-   *    title:string,
-   *    link:string,
-   *    thumb:string,
-   *    chapters:number,
-   *    author:string
-   *  }[],
-   *  metadata:{
-   *   hasNext:boolean,
-   *   hasPrev:boolean,
-   *   itemCount:number,
-   *   totalMangas:number,
-   *   totalPage:number,
-   *   currentPage:number
-   *  }
-   * }[]>} Returns a manga array of current page
-   */
+     *  mangas:{
+     *    id:string,
+     *    title:string,
+     *    link:string,
+     *    thumb:string,
+     *    chapters:number,
+     *    author:string
+     *  }[],
+     *  metadata:{
+     *   hasNext:boolean,
+     *   hasPrev:boolean,
+     *   itemCount:number,
+     *   totalMangas:number,
+     *   totalPage:number,
+     *   currentPage:number
+     *  }
+     * }[]>} Returns a manga array of searched string
+     */
   async searchManga (search, page = 1) {
     if (!search) throw Error('Search is required')
     if (typeof search !== 'string') throw Error('Search must be a string')

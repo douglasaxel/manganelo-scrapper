@@ -1,3 +1,8 @@
+exports.MangaType = {
+  NEWEST: 'Newest',
+  TOPVIEW: 'Top view'
+}
+
 exports.MangaStatus = {
   ONGOING: 'Ongoing',
   COMPLETED: 'Completed'

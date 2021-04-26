@@ -1,4 +1,4 @@
-const { MangaGenre } = require('../enums/genres')
+const { MangaGenre } = require('../enums')
 
 /**
  * @param {string} genre
