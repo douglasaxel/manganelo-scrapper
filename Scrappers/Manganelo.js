@@ -15,6 +15,26 @@ class Manganelo {
     this.cache = new NodeCache({ stdTTL: 259200, deleteOnExpire: true })
   }
 
+  async getMostPopularManga () {
+    this.url.pathname = ''
+
+    const res = await fetch(this.url.origin)
+    const text = await res.text()
+    const dom = new JSDOM(text)
+    const { document } = dom.window
+    const containers = document.querySelectorAll('div.panel-topview  div.panel-topview-item')
+
+    const mangas = []
+
+    for (const element of containers) {
+      const id = element.querySelector('h3 > a').getAttribute('href').match(/manga\/(.+)/i)[1]
+      const manga = await this.getMangaDetails(id)
+      mangas.push(manga)
+    }
+
+    return mangas
+  }
+
   /**
    * @param {{ page?:number, genre?:string, type?:string, status?:string }} params
    * @returns {Promise<{
@@ -60,7 +80,7 @@ class Manganelo {
 
     containers.forEach((element) => {
       const link = element.querySelector('a.genres-item-img').getAttribute('href')
-      const id = link.replace('https://manganelo.com/manga/', '')
+      const id = link.match(/manga\/(.+)/i)[1]
       const thumb = element.querySelector('a.genres-item-img > img').getAttribute('src')
       const title = element.querySelector('.genres-item-info h3 a').textContent
       const chapters = element.querySelector('.genres-item-info .genres-item-chap')?.textContent.replace('Chapter ', '') || 'No chapters'
@@ -126,7 +146,7 @@ class Manganelo {
 
     containers.forEach((element) => {
       const link = element.querySelector('a.item-img').getAttribute('href')
-      const id = link.replace('https://manganelo.com/manga/', '')
+      const id = link.match(/manga\/(.+)/i)[1]
       const thumb = element.querySelector('a.item-img > img').getAttribute('src')
       const title = element.querySelector('.item-right h3 a').textContent
       const chapters = element.querySelector('.item-right .item-chapter')?.textContent.replace('Chapter ', '') || 'No chapters'
@@ -200,7 +220,7 @@ class Manganelo {
 
     containers.forEach((element) => {
       const link = element.querySelector('a.genres-item-img').getAttribute('href')
-      const id = link.replace('https://manganelo.com/manga/', '')
+      const id = link.match(/manga\/(.+)/i)[1]
       const thumb = element.querySelector('a.genres-item-img > img').getAttribute('src')
       const title = element.querySelector('.genres-item-info h3 a').textContent
       const chapters = Number(element.querySelector('.genres-item-info .genres-item-chap')?.textContent.match(/ch.([0-9]+)/i, '')?.[1]) || 'No chapters'
@@ -300,8 +320,8 @@ class Manganelo {
    * @returns {Promise<{
    *  id:string,
    *  title:string,
-   *  alternativeNames:string,
-   *  author:string,
+   *  alternativeNames?:string,
+   *  author:string[],
    *  status:string,
    *  genres:{ id:string, title:string, link:string }[],
    *  updated:string,
@@ -320,32 +340,60 @@ class Manganelo {
     const dom = new JSDOM(text)
     const { document } = dom.window
 
-    const chapters = document.querySelectorAll('.row-content-chapter li.a-h').length
+    const notFound = document.querySelector('body > div.body-site > div.container.container-main > div.panel-not-found > p:nth-child(1)')
+    if (notFound) throw Error('Manga not found. Maybe the idManga could be wrong')
+
     const title = document.querySelector('div.panel-story-info > div.story-info-right > h1').textContent
-    const alternativeNames = document.querySelector('div.panel-story-info > div.story-info-right > table > tbody > tr:nth-child(1) > td.table-value > h2').textContent
-    const author = document.querySelector('div.panel-story-info > div.story-info-right > table > tbody > tr:nth-child(2) > td.table-value > a').textContent
-    const status = document.querySelector('div.panel-story-info > div.story-info-right > table > tbody > tr:nth-child(3) > td.table-value').textContent
-    const allGenres = document.querySelectorAll('div.panel-story-info > div.story-info-right > table > tbody > tr:nth-child(4) > td.table-value > a.a-h')
+    const chapters = document.querySelectorAll('.row-content-chapter li.a-h').length
+    const infos = document.querySelectorAll('div.panel-story-info > div.story-info-right > table > tbody tr')
     const updated = document.querySelector('div.panel-story-info > div.story-info-right > div > p:nth-child(1) > span.stre-value').textContent
     const description = document.querySelector('#panel-story-info-description').textContent.replace('Description :\n', '')
 
-    const genres = []
+    let existingInfos = {}
 
-    allGenres.forEach(element => {
-      const genreTitle = element.textContent
-      const genreLink = element.getAttribute('href')
-      const genreId = genreLink.replace(`${this.url.origin}/`, '')
+    infos.forEach(element => {
+      const label = element.querySelector('td.table-label').textContent.replace(' :', '').replace('(s)', '').trim().toLowerCase()
 
-      genres.push({ id: genreId, title: genreTitle, link: genreLink })
+      const current = {}
+      switch (label) {
+        case 'alternative': {
+          current[label] = element.querySelector('td.table-value h2').textContent
+          break
+        }
+        case 'author': {
+          const authors = element.querySelectorAll('td.table-value a')
+          current[label] = []
+          for (const author of authors) current[label].push(author.textContent)
+          break
+        }
+        case 'status': {
+          current[label] = element.querySelector('td.table-value').textContent
+          break
+        }
+        case 'genres': {
+          const genres = element.querySelectorAll('td.table-value a')
+          current[label] = []
+          for (const genre of genres) {
+            const genreTitle = genre.textContent
+            const genreLink = genre.getAttribute('href')
+            const genreId = genreLink.replace(`${this.url.origin}/`, '')
+
+            current[label].push({ id: genreId, title: genreTitle, link: genreLink })
+          }
+          break
+        }
+
+        default:
+          break
+      }
+
+      existingInfos = { ...existingInfos, ...current }
     })
 
     return {
       id: idManga,
       title,
-      alternativeNames,
-      author,
-      status,
-      genres,
+      ...existingInfos,
       updated,
       description,
       chapters
