@@ -19,10 +19,26 @@ npm install manganelo-scrapper
 
 ## API
 
+Use the constant variables at `/enums` when applying filters to the functions
+
 ```js
 const Manganelo = require("manganelo-scrapper");
 
 const manganelo = new Manganelo();
+```
+
+## Enums
+
+All constants tha you need to create advanced search
+
+```js
+const {
+  MangaGenre,
+  MangaStatus,
+  MangaType,
+  Keywords,
+  OrderBy,
+} = require("manganelo-scrapper/enums");
 ```
 
 ## Sources

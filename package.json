@@ -1,8 +1,8 @@
 {
   "name": "manganelo-scrapper",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A manganelo.com scrapper",
-  "main": "ManganeloScrapper.js",
+  "main": "Scrapers/ManganeloScrapper.js",
   "scripts": {
     "dev": "nodemon --trace-warnings index"
   },
