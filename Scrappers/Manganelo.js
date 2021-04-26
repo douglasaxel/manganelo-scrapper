@@ -1,17 +1,19 @@
+/* eslint-disable prefer-regex-literals */
 const fetch = require('node-fetch')
-const JSDOM = require('jsdom').JSDOM
+const { JSDOM } = require('jsdom')
 const fs = require('fs')
 const path = require('path')
 const NodeCache = require('node-cache')
+const getGenres = require('../utils/getGenres')
 
-class ManganeloScrapper {
+class Manganelo {
   constructor () {
     this.url = new URL('https://manganelo.com/')
     this.cache = new NodeCache({ stdTTL: 259200, deleteOnExpire: true })
   }
 
   /**
-   * @param {number} page All mangas list page
+   * @param {{ page?:number, genre?:string }} param0
    * @returns {Promise<{
    *  mangas:{
    *    id:string,
@@ -31,10 +33,15 @@ class ManganeloScrapper {
    *  }
    * }[]>} Returns a manga array of current page
    */
-  async getAllList (page = 1) {
-    this.url.pathname = `genre-all/${page}`
+  async getMangaList ({ page = 1, genre = 'all' }) {
+    if (!genre) throw Error('Genre is required')
+    if (typeof genre !== 'string') throw Error('Genre must be a string')
 
-    const cache = this.cache.get(`all-manga:page-${page}`)
+    const genreId = getGenres(genre)
+
+    this.url.pathname = `genre-${genreId}/${page}`
+
+    const cache = this.cache.get(`${genreId}-manga:page-${page}`)
     if (cache) return JSON.parse(cache)
 
     const res = await fetch(this.url.href)
@@ -73,6 +80,90 @@ class ManganeloScrapper {
         currentPage
       }
     }
+  }
+
+  /**
+   * @param {string} search
+   * @param {number} page
+   * @returns {Promise<{
+   *  mangas:{
+   *    id:string,
+   *    title:string,
+   *    link:string,
+   *    thumb:string,
+   *    chapters:number,
+   *    author:string
+   *  }[],
+   *  metadata:{
+   *   hasNext:boolean,
+   *   hasPrev:boolean,
+   *   itemCount:number,
+   *   totalMangas:number,
+   *   totalPage:number,
+   *   currentPage:number
+   *  }
+   * }[]>} Returns a manga array of current page
+   */
+  async searchManga (search, page = 1) {
+    if (!search) throw Error('Search is required')
+    if (typeof search !== 'string') throw Error('Search must be a string')
+
+    this.url.pathname = `search/story/${this.normalizeSearchQuery(search)}`
+    console.log(this.url.href)
+
+    const res = await fetch(this.url.href)
+    const text = await res.text()
+    const dom = new JSDOM(text)
+    const { document } = dom.window
+    const containers = document.querySelectorAll('.panel-search-story .search-story-item')
+    const currentPage = page
+    const firstPage = 1
+    const lastPage = document.querySelector('div.group-page > a.page-blue.page-last')?.textContent.match(/LAST\(([0-9]+)\)/)[1]
+
+    const mangas = []
+
+    containers.forEach((element) => {
+      const link = element.querySelector('a.item-img').getAttribute('href')
+      const id = link.replace('https://manganelo.com/manga/', '')
+      const thumb = element.querySelector('a.item-img > img').getAttribute('src')
+      const title = element.querySelector('.item-right h3 a').textContent
+      const chapters = element.querySelector('.item-right .item-chapter')?.textContent.replace('Chapter ', '') || 'No chapters'
+      const author = element.querySelector('.item-right .item-author')?.textContent || 'Updating...'
+
+      mangas.push({ id, title, link, thumb, chapters, author })
+    })
+
+    return {
+      mangas,
+      metadata: {
+        hasNext: currentPage < (lastPage || 0),
+        hasPrev: currentPage > (firstPage || 0),
+        itemCount: mangas.length,
+        totalMangas: mangas.length,
+        totalPage: Number(lastPage || 0),
+        currentPage
+      }
+    }
+  }
+
+  /**
+   * @param {string} query
+   * @returns {string} Returns a clean string for URL query
+   */
+  normalizeSearchQuery (query) {
+    let str = query.toLowerCase()
+    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a')
+    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e')
+    str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i')
+    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o')
+    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u')
+    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y')
+    str = str.replace(/đ/g, 'd')
+    str = str.replace(/!|@|%|\^|\*|\(|\)|\+|=|<|>|\?|\/|,|\.|:|;|'|\s|"|&|#|[|]|~|-|\$|_/g, '_')
+    str = str.replace(/_+_/g, '_')
+    str = str.replace(/^_+|_+'/g, '')
+
+    return str
   }
 
   /**
@@ -136,7 +227,7 @@ class ManganeloScrapper {
    * @param {string} idManga Manga id
    * @returns {Promise<{ id:string, title:string, link:string, date:string }[]>} returns a list of chapters
    */
-  async getChapters (idManga) {
+  async getMangaChapters (idManga) {
     if (!idManga) throw Error('idManga is required')
     if (typeof idManga !== 'string') throw Error('idManga must be a string')
 
@@ -167,7 +258,7 @@ class ManganeloScrapper {
    * @param {number} chapter Manga chapter
    * @returns {Promise<{ id:string, title:string, link:string }[]>}
    */
-  async getChapter (idManga, chapter) {
+  async getMangaChapter (idManga, chapter) {
     if (!idManga) throw Error('idManga is required')
     if (typeof idManga !== 'string') throw Error('idManga must be a string')
     if (!chapter) throw Error('chapter is required')
@@ -198,7 +289,7 @@ class ManganeloScrapper {
    * @param {number} chapter Manga chapter
    * @returns {Promise<void>} Creates a folder with the manga name and saves the images inside
    */
-  async downloadChapter (idManga, chapter) {
+  async downloadMangaChapter (idManga, chapter) {
     if (!idManga) throw Error('idManga is required')
     if (typeof idManga !== 'string') throw Error('idManga must be a string')
     if (!chapter) throw Error('chapter is required')
@@ -236,7 +327,7 @@ class ManganeloScrapper {
    * @param {string} idManga Manga id
    * @returns {Promise<void>} Download all the manga chapters and create a folder for each chapter
    */
-  async downloadAllChapters (idManga) {
+  async downloadMangaAllChapters (idManga) {
     const chapters = await this.getChapters(idManga)
 
     chapters.forEach(async chapter => {
@@ -275,4 +366,4 @@ class ManganeloScrapper {
   }
 }
 
-module.exports = ManganeloScrapper
+module.exports = Manganelo

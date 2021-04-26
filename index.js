@@ -1,10 +1,13 @@
-const Scrapper = require('./ManganeloScrapper')
+const Manganelo = require('./Scrappers/Manganelo')
 
-const scrapper = new Scrapper()
+const { MangaGenre } = require('./enums/genres')
+
+const manganelo = new Manganelo()
 
 async function main () {
   try {
-    console.log(await scrapper.getAllList(2))
+    const genreList = await manganelo.searchMangaByName('hero', 16)
+    console.log(genreList)
   } catch (error) {
     console.error(error)
   }
