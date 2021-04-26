@@ -1,12 +1,13 @@
-/* eslint-disable prefer-regex-literals */
 const fetch = require('node-fetch')
 const { JSDOM } = require('jsdom')
 const fs = require('fs')
 const path = require('path')
 const NodeCache = require('node-cache')
 const getGenres = require('../utils/getGenres')
-const getStates = require('../utils/getStatus')
 const getTypes = require('../utils/getTypes')
+const getOrderBy = require('../utils/getOrderBy')
+const getKeywords = require('../utils/getKeywords')
+const getStatus = require('../utils/getStatus')
 
 class Manganelo {
   constructor () {
@@ -15,7 +16,7 @@ class Manganelo {
   }
 
   /**
-   * @param {{ page?:number, genre?:string, type?:string, state?:string }} param
+   * @param {{ page?:number, genre?:string, type?:string, status?:string }} params
    * @returns {Promise<{
    *  mangas:{
    *    id:string,
@@ -35,22 +36,14 @@ class Manganelo {
    *  }
    * }[]>} Returns a manga array of current page
    */
-  async getMangaList (params = { page: 1, genre: 'all', type: '', state: '' }) {
-    const options = { ...{ page: 1, genre: 'all', type: '', state: '' }, ...params }
-    if (!options.page) throw Error('page is required')
-    if (typeof options.page !== 'number') throw Error('page must be a number')
-    if (!options.genre) throw Error('Genre is required')
-    if (typeof options.genre !== 'string') throw Error('Genre must be a string')
+  async getMangaList (params) {
+    const genreId = params?.genre ? getGenres(params.genre) : 'all'
 
-    const genreId = getGenres(options.genre) || options.genre
-    const stateId = getStates(options.state) || options.state
-    const typeId = getTypes(options.type) || options.type
+    this.url.pathname = `genre-${genreId}/${params?.page || 1}`
+    if (params?.type) this.url.searchParams.append('type', getTypes(params.type))
+    if (params?.status) this.url.searchParams.append('state', getStatus(params.status))
 
-    this.url.pathname = `genre-${genreId}/${options.page}`
-    if (options.type) this.url.searchParams.append('type', typeId)
-    if (options.state) this.url.searchParams.append('state', stateId)
-
-    const cache = this.cache.get(`${genreId}-manga:page-${options.page}`)
+    const cache = this.cache.get(`${genreId}-manga:page-${params?.page || 1}`)
     if (cache) return JSON.parse(cache)
 
     const res = await fetch(this.url.href)
@@ -58,7 +51,7 @@ class Manganelo {
     const dom = new JSDOM(text)
     const { document } = dom.window
     const containers = document.querySelectorAll('.content-genres-item')
-    const currentPage = options.page
+    const currentPage = params?.page || 1
     const firstPage = 1
     const [, lastPage] = document.querySelector('div.group-page > a.page-blue.page-last').textContent.match(/LAST\(([0-9]+)\)/)
     const [, totalMangas] = document.querySelector('div.panel-page-number > div.group-qty > a').textContent.split(':')
@@ -76,7 +69,7 @@ class Manganelo {
       mangas.push({ id, title, link, thumb, chapters, author })
     })
 
-    this.cache.set(`all-manga:page-${options.page}`, JSON.stringify(mangas))
+    this.cache.set(`all-manga:page-${params?.page || 1}`, JSON.stringify(mangas))
 
     return {
       mangas,
@@ -118,7 +111,6 @@ class Manganelo {
     if (typeof search !== 'string') throw Error('Search must be a string')
 
     this.url.pathname = `search/story/${this.normalizeSearchQuery(search)}`
-    console.log(this.url.href)
 
     const res = await fetch(this.url.href)
     const text = await res.text()
@@ -128,6 +120,7 @@ class Manganelo {
     const currentPage = page
     const firstPage = 1
     const lastPage = document.querySelector('div.group-page > a.page-blue.page-last')?.textContent.match(/LAST\(([0-9]+)\)/)[1]
+    const totalMangas = document.querySelector('div.panel-page-number > div.group-qty > a')?.textContent.split(':')[1]
 
     const mangas = []
 
@@ -148,11 +141,138 @@ class Manganelo {
         hasNext: currentPage < (lastPage || 0),
         hasPrev: currentPage > (firstPage || 0),
         itemCount: mangas.length,
-        totalMangas: mangas.length,
-        totalPage: Number(lastPage || 0),
+        totalMangas: Number(totalMangas?.replace(',', '').trim() || mangas.length),
+        totalPage: Number(lastPage || 1),
         currentPage
       }
     }
+  }
+
+  /**
+   * @param {{
+   *  excludes?:string[],
+   *  includes?:string[],
+   *  orderBy?:string,
+   *  status?:string,
+   *  searchKey?:string,
+   *  searchWord?:string,
+   *  page?:number
+   * }} params
+   * @returns {Promise<{
+   *  mangas:{
+   *    id:string,
+   *    title:string,
+   *    link:string,
+   *    thumb:string,
+   *    chapters:number,
+   *    author:string
+   *  }[],
+   *  metadata:{
+   *   hasNext:boolean,
+   *   hasPrev:boolean,
+   *   itemCount:number,
+   *   totalMangas:number,
+   *   totalPage:number,
+   *   currentPage:number
+   *  }
+   * }[]>} Returns a manga array of current page
+   */
+  async advancedSearchManga (params) {
+    this.deleteQueryParams()
+    this.url.pathname = 'advanced_search'
+    this.url.searchParams.append('page', params?.page || 1)
+    this.createQueryParams(params)
+
+    const cache = this.cache.get(`advanced_search:page-${params?.page || 1}`)
+    if (cache) return JSON.parse(cache)
+
+    const res = await fetch(this.url.href)
+    const text = await res.text()
+    const dom = new JSDOM(text)
+    const { document } = dom.window
+    const containers = document.querySelectorAll('.content-genres-item')
+    const currentPage = params?.page || 1
+    const firstPage = 1
+    const lastPage = document.querySelector('div.group-page > a.page-blue.page-last')?.textContent.match(/LAST\(([0-9]+)\)/)[1]
+    const totalMangas = document.querySelector('div.panel-page-number > div.group-qty > a')?.textContent.split(':')[1]
+
+    const mangas = []
+
+    containers.forEach((element) => {
+      const link = element.querySelector('a.genres-item-img').getAttribute('href')
+      const id = link.replace('https://manganelo.com/manga/', '')
+      const thumb = element.querySelector('a.genres-item-img > img').getAttribute('src')
+      const title = element.querySelector('.genres-item-info h3 a').textContent
+      const chapters = Number(element.querySelector('.genres-item-info .genres-item-chap')?.textContent.match(/ch.([0-9]+)/i, '')?.[1]) || 'No chapters'
+      const author = element.querySelector('.genres-item-info .genres-item-author')?.textContent
+
+      mangas.push({ id, title, link, thumb, chapters, author })
+    })
+
+    this.cache.set(`all-manga:page-${params?.page || 1}`, JSON.stringify(mangas))
+
+    return {
+      mangas,
+      metadata: {
+        hasNext: currentPage < (lastPage || 0),
+        hasPrev: currentPage > (firstPage || 0),
+        itemCount: mangas.length,
+        totalMangas: Number(totalMangas?.replace(',', '').trim() || mangas.length),
+        totalPage: Number(lastPage || 1),
+        currentPage
+      }
+    }
+  }
+
+  /**
+   * Create de query params for the advanced search
+   * @param {{
+   *  excludes?:string[],
+   *  includes?:string[],
+   *  orderBy?:string,
+   *  status?:string,
+   *  searchKey?:string,
+   *  searchWord?:string,
+   *  page?:number
+   * }} search
+   */
+  createQueryParams (search) {
+    this.url.searchParams.append('s', 'all')
+    if (search?.excludes?.length > 0) {
+      this.url.searchParams.append('g_e', `_${search.excludes.map(ex => getGenres(ex)).join('_')}_`)
+    }
+    if (search?.includes?.length > 0) {
+      this.url.searchParams.append('g_i', `_${search.includes.map(ex => getGenres(ex)).join('_')}_`)
+    }
+    if (search?.orderBy) {
+      this.url.searchParams.append('orby', getOrderBy(search.orderBy))
+    }
+    if (search?.status) {
+      this.url.searchParams.append('sts', getStatus(search.status))
+    }
+    if (search?.searchKey) {
+      this.url.searchParams.append('keyt', getKeywords(search.searchKey))
+    }
+    if (search?.searchWord) {
+      this.url.searchParams.append('keyw', this.normalizeSearchQuery(search.searchWord))
+    }
+    if (search?.page) {
+      this.url.searchParams.append('page', search.page)
+    }
+  }
+
+  /**
+   * Delete all url query params
+   */
+  deleteQueryParams () {
+    this.url.searchParams.delete('s')
+    this.url.searchParams.delete('g_e')
+    this.url.searchParams.delete('g_i')
+    this.url.searchParams.delete('orby')
+    this.url.searchParams.delete('sts')
+    this.url.searchParams.delete('keyt')
+    this.url.searchParams.delete('keyw')
+    this.url.searchParams.delete('page')
   }
 
   /**
@@ -365,7 +485,7 @@ class Manganelo {
       res.body.pipe(fileStream)
       res.body.on('error', (err) => {
         fileStream.close()
-        if (err) console.log(err.message)
+        if (err) console.error(err.message)
       })
       fileStream.on('finish', function () {
         fileStream.close()

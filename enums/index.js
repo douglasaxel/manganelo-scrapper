@@ -1,14 +1,14 @@
-exports.MangaType = {
+const MangaType = {
   NEWEST: 'Newest',
   TOPVIEW: 'Top view'
 }
 
-exports.MangaStatus = {
+const MangaStatus = {
   ONGOING: 'Ongoing',
   COMPLETED: 'Completed'
 }
 
-exports.MangaGenre = {
+const MangaGenre = {
   ACTION: 'Action',
   ADULT: 'Adult',
   ADVENTURE: 'Adventure',
@@ -49,4 +49,23 @@ exports.MangaGenre = {
   WEBTOONS: 'Webtoons',
   YAOI: 'Yaoi',
   YURI: 'Yuri'
+}
+
+const OrderBy = {
+  ...MangaType,
+  AZ: 'A-Z'
+}
+
+const Keywords = {
+  NAMETITLE: 'Name title',
+  ALTERNATIVENAME: 'Alternative name',
+  AUTHOR: 'Author'
+}
+
+module.exports = {
+  MangaType,
+  MangaStatus,
+  MangaGenre,
+  OrderBy,
+  Keywords
 }
