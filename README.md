@@ -1,6 +1,6 @@
 # Manganelo Scrapper
 
-A [manganelo](https://www.manganelo.com/) scrapper
+A [manganelo](https://www.manganelo.com/) scrapper.
 This is a work in progress
 
 ## Installation
@@ -23,20 +23,6 @@ npm install manganelo-scrapper
 const Manganelo = require("manganelo-scrapper");
 
 const manganelo = new Manganelo();
-
-async function main() {
-  try {
-    const allList = await manganelo.getAllList();
-    const mangaDetail = await manganelo.getMangaDetails("pn918005");
-    const mangaChapters = await manganelo.getChapters("pn918005");
-    const mangaChapter = await manganelo.getChapter("pn918005", 1);
-    await manganelo.downloadChapter("pn918005", 1);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-main();
 ```
 
 ## Sources
